@@ -10,6 +10,9 @@ from telegram import Bot
 import asyncio
 
 app = Flask(__name__, static_folder="static")
+@app.route('/')
+def home():
+    return app.send_static_file('index.html')
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "INSERISCI_QUI_IL_TUO_TOKEN")
 GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID", "-1001234567890")

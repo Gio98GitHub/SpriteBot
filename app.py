@@ -1,5 +1,5 @@
 import os
-import sqlite3
+import psycopg2
 import hashlib
 import hmac
 import json
@@ -10,56 +10,42 @@ import asyncio
 
 app = Flask(__name__, static_folder="static")
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "INSERISCI_QUI_IL_TUO_TOKEN")
-GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID", "-1001234567890")
-DB_PATH = "spiritelli.db"
+# Recupera le variabili configurate su Render
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID")
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# ---------------- CONFIGURAZIONE SPIRITELLI UFFICIALI ----------------
-# Aggiornato con gli 11 spiritelli del Capitolo 7
-SPIRITELLI_CONFIG = {
-    "Acqua": "💧", "Terra": "🌍", "Fuoco": "🔥", "Papera": "🦆", 
-    "Demone": "😈", "Fantasma": "👻", "Re": "👑", "Punk": "🎸", 
-    "Sogno": "🌌", "Punto Zero": "🔮", "Arachide Bruciata": "🥜"
-}
+# ---------------- CONFIGURAZIONE SPIRITELLI ----------------
+SPIRITELLI_CONFIG = [
+    "Acqua", "Terra", "Fuoco", "Papera", "Demone", 
+    "Fantasma", "Re", "Punk", "Sogno", "Punto Zero", "Arachide Bruciata"
+]
 VARIANTI_LISTA = ["Normale", "Oro", "Caramella"]
 
-# ---------------- DATABASE ----------------
+# ---------------- DATABASE (Supabase/PostgreSQL) ----------------
 
-def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""
-        CREATE TABLE IF NOT EXISTS collezione (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            username TEXT,
-            tipo TEXT NOT NULL,
-            variante TEXT NOT NULL,
-            UNIQUE(user_id, tipo, variante) 
-        )
-    """)
-    conn.commit()
-    conn.close()
+def get_db_connection():
+    return psycopg2.connect(DATABASE_URL)
 
 def aggiungi_spiritello(user_id, username, tipo, variante):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
-    try:
-        c.execute(
-            "INSERT OR IGNORE INTO collezione (user_id, username, tipo, variante) VALUES (?, ?, ?, ?)",
-            (user_id, username, tipo, variante)
-        )
-        conn.commit()
-        return c.rowcount > 0 # Ritorna True se ha inserito davvero
-    except:
-        return False
-    finally:
-        conn.close()
+    # Inserisce solo se non esiste già la combinazione (grazie al vincolo UNIQUE)
+    c.execute("""
+        INSERT INTO collezione (user_id, username, tipo, variante) 
+        VALUES (%s, %s, %s, %s) 
+        ON CONFLICT DO NOTHING
+    """, (user_id, username, tipo, variante))
+    conn.commit()
+    inserted = c.rowcount > 0
+    conn.close()
+    return inserted
 
 def elimina_spiritello(user_id, tipo, variante):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM collezione WHERE user_id = ? AND tipo = ? AND variante = ?", (user_id, tipo, variante))
+    c.execute("DELETE FROM collezione WHERE user_id = %s AND tipo = %s AND variante = %s", 
+              (user_id, tipo, variante))
     conn.commit()
     deleted = c.rowcount > 0
     conn.close()
@@ -82,7 +68,7 @@ def verifica_init_data(init_data: str):
 # ---------------- API ----------------
 
 @app.route("/")
-def home(): return app.send_static_file('index.html')
+def home(): return send_from_directory("static", "index.html")
 
 @app.route("/api/collezione", methods=["POST"])
 def api_collezione():
@@ -90,12 +76,11 @@ def api_collezione():
     user = verifica_init_data(body.get("initData", ""))
     if not user: return jsonify({"error": "non autorizzato"}), 401
     
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT tipo, variante FROM collezione WHERE user_id = ?", (user["id"],))
+    c.execute("SELECT tipo, variante FROM collezione WHERE user_id = %s", (user["id"],))
     rows = c.fetchall()
     conn.close()
-    
     return jsonify({"spiritelli": [{"tipo": r[0], "variante": r[1]} for r in rows]})
 
 @app.route("/api/aggiungi", methods=["POST"])
@@ -136,5 +121,4 @@ async def invia_messaggio_gruppo(testo):
     await bot.send_message(chat_id=GROUP_CHAT_ID, text=testo)
 
 if __name__ == "__main__":
-    init_db()
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))

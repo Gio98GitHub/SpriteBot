@@ -1,300 +1,366 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Spiritelli</title>
-<script src="https://telegram.org/js/telegram-web-app.js"></script>
-<style>
-  * { box-sizing: border-box; font-family: -apple-system, Roboto, sans-serif; }
-  body {
-    margin: 0;
-    padding: 16px;
-    background: var(--tg-theme-bg-color, #fff);
-    color: var(--tg-theme-text-color, #000);
-  }
-  h2 { margin-top: 0; }
-  .tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .tab-btn {
-    flex: 1;
-    padding: 10px;
-    border: none;
-    border-radius: 8px;
-    background: var(--tg-theme-secondary-bg-color, #eee);
-    color: var(--tg-theme-text-color, #000);
-    font-weight: bold;
-    cursor: pointer;
-  }
-  .tab-btn.active {
-    background: var(--tg-theme-button-color, #2ea6ff);
-    color: var(--tg-theme-button-text-color, #fff);
-  }
-  .view { display: none; }
-  .view.active { display: block; }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>✨ SpiriBot</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-color: #12121a;
+            --card-bg: #1e1e2f;
+            --text-color: #ffffff;
+            --text-muted: #a0a0b5;
+            --primary-grad: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            --accent-grad: linear-gradient(135deg, #b134ff 0%, #ff007f 100%);
+            --danger: #ff4757;
+        }
+        
+        body {
+            font-family: 'Nunito', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 15px;
+            text-align: center;
+            user-select: none; 
+            -webkit-user-select: none;
+        }
 
-  .option-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
-    margin: 12px 0;
-  }
-  .option-btn {
-    padding: 12px;
-    border: 2px solid var(--tg-theme-hint-color, #ccc);
-    border-radius: 10px;
-    background: transparent;
-    color: var(--tg-theme-text-color, #000);
-    cursor: pointer;
-    font-size: 14px;
-  }
-  .option-btn.selected {
-    border-color: var(--tg-theme-button-color, #2ea6ff);
-    background: var(--tg-theme-button-color, #2ea6ff);
-    color: var(--tg-theme-button-text-color, #fff);
-  }
+        h1, h2, h3 { font-family: 'Fredoka', sans-serif; letter-spacing: 0.5px; margin-bottom: 20px; }
+        h1 { font-size: 28px; background: var(--primary-grad); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-  .main-btn {
-    width: 100%;
-    padding: 14px;
-    border: none;
-    border-radius: 10px;
-    background: var(--tg-theme-button-color, #2ea6ff);
-    color: var(--tg-theme-button-text-color, #fff);
-    font-size: 16px;
-    font-weight: bold;
-    cursor: pointer;
-    margin-top: 12px;
-  }
+        .tabs { display: flex; justify-content: space-around; margin-bottom: 25px; background: var(--card-bg); border-radius: 15px; padding: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .tab-btn { flex: 1; padding: 12px; border: none; background: transparent; color: var(--text-muted); font-family: 'Fredoka', sans-serif; font-size: 15px; border-radius: 10px; transition: all 0.3s ease; cursor: pointer; }
+        .tab-btn.active { background: var(--primary-grad); color: #fff; box-shadow: 0 4px 10px rgba(79, 172, 254, 0.4); }
 
-  .item-card {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px;
-    border: 1px solid var(--tg-theme-hint-color, #ddd);
-    border-radius: 10px;
-    margin-bottom: 8px;
-  }
-  .item-card button {
-    background: #ff4d4d;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    padding: 6px 10px;
-    cursor: pointer;
-  }
+        .section { display: none; background: var(--card-bg); padding: 20px; border-radius: 20px; box-shadow: 0 8px 25px rgba(0,0,0,0.4); }
+        .section.active { display: block; animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-  .status-msg {
-    margin-top: 12px;
-    padding: 10px;
-    border-radius: 8px;
-    text-align: center;
-    display: none;
-  }
-  .status-msg.success {
-    background: #d4f8d4;
-    color: #1a6e1a;
-    display: block;
-  }
-  .status-msg.error {
-    background: #ffd6d6;
-    color: #a30000;
-    display: block;
-  }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 12px; margin-top: 15px; margin-bottom: 25px; }
 
-  .empty {
-    text-align: center;
-    color: var(--tg-theme-hint-color, #999);
-    padding: 24px;
-  }
-</style>
+        .btn { padding: 15px 10px; border: 2px solid #2a2a3f; background: #232336; color: var(--text-color); border-radius: 15px; cursor: pointer; font-family: 'Fredoka', sans-serif; font-size: 15px; transition: all 0.2s; -webkit-tap-highlight-color: transparent; }
+        .btn:hover:not(.disabled) { border-color: #4facfe; transform: translateY(-2px); }
+        .btn.selected { background: var(--accent-grad); border-color: transparent; color: white; box-shadow: 0 4px 15px rgba(255, 0, 127, 0.4); }
+        .btn.disabled { opacity: 0.35; pointer-events: none; filter: grayscale(100%) brightness(0.6); border-color: #1e1e2f; }
+
+        .type-container { margin-bottom: 30px; text-align: left; }
+        .type-title { font-family: 'Fredoka', sans-serif; font-size: 20px; color: #fff; margin-bottom: 15px; border-bottom: 2px solid #35354e; padding-bottom: 8px; display: flex; align-items: center; }
+        .type-count { background: #35354e; color: #fff; font-size: 12px; padding: 3px 8px; border-radius: 10px; margin-left: 10px; }
+        .library-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); gap: 15px; }
+
+        .spiritello-card { background: #232336; border: 2px solid #35354e; border-radius: 16px; padding: 15px 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2); transition: 0.2s; height: 120px; box-sizing: border-box; }
+        .spiritello-card:hover { border-color: #4facfe; transform: translateY(-4px); }
+        .card-icon { font-size: 45px; margin-bottom: 10px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); }
+        .card-variant { font-family: 'Fredoka', sans-serif; font-size: 13px; color: var(--text-color); background: rgba(0,0,0,0.3); padding: 5px 8px; border-radius: 8px; width: 90%; text-align: center; word-wrap: break-word; }
+        
+        .card-delete { position: absolute; top: -6px; right: -6px; background: var(--danger); color: white; border: none; border-radius: 50%; width: 26px; height: 26px; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; transition: 0.2s; }
+        .card-delete:hover { transform: scale(1.1); background: #ff1e33; }
+
+        .action-btn { width: 100%; padding: 18px; background: var(--primary-grad); color: white; border: none; border-radius: 15px; font-family: 'Fredoka', sans-serif; font-size: 18px; display: none; cursor: pointer; box-shadow: 0 5px 20px rgba(79, 172, 254, 0.5); transition: 0.2s; margin-top: 20px; }
+        .action-btn:active { transform: scale(0.96); }
+        .form-titolo { margin-bottom: 5px; color: var(--text-muted); font-size: 14px; text-transform: uppercase; letter-spacing: 1px;}
+    </style>
 </head>
 <body>
 
-<h2>👻 Spiritelli</h2>
+    <h1 id="mainTitle">✨ SpiriBot</h1>
 
-<div class="tabs">
-  <button class="tab-btn active" data-view="collezione">📦 Collezione</button>
-  <button class="tab-btn" data-view="aggiungi">➕ Aggiungi</button>
-  <button class="tab-btn" data-view="richiedi">🔎 Cerca/Richiedi</button>
-</div>
+    <div class="tabs" id="tabContainer">
+        <button class="tab-btn active" onclick="switchTab('collezione')">🎒 Collezione</button>
+        <button class="tab-btn" onclick="switchTab('aggiungi')">➕ Aggiungi</button>
+        <button class="tab-btn" onclick="switchTab('cerca')">🔍 Cerca</button>
+    </div>
 
-<!-- VISTA COLLEZIONE -->
-<div class="view active" id="view-collezione">
-  <div id="collezione-list"></div>
-</div>
+    <div id="collezione" class="section active">
+        <div id="tipiList"></div>
+    </div>
 
-<!-- VISTA AGGIUNGI -->
-<div class="view" id="view-aggiungi">
-  <p>Tipo:</p>
-  <div class="option-grid" id="aggiungi-tipi"></div>
-  <p>Variante:</p>
-  <div class="option-grid" id="aggiungi-varianti"></div>
-  <button class="main-btn" id="btn-aggiungi">Aggiungi alla collezione</button>
-  <div class="status-msg" id="aggiungi-status"></div>
-</div>
+    <div id="aggiungi" class="section">
+        <div class="form-titolo">Fase 1</div>
+        <h3>Seleziona lo Spiritello</h3>
+        <div class="grid" id="gridTipiAggiungi"></div>
 
-<!-- VISTA RICHIEDI -->
-<div class="view" id="view-richiedi">
-  <p>Che tipo di spiritello stai cercando?</p>
-  <div class="option-grid" id="richiedi-tipi"></div>
-  <p>Quale variante?</p>
-  <div class="option-grid" id="richiedi-varianti"></div>
-  <button class="main-btn" id="btn-richiedi">Invia richiesta nel gruppo</button>
-  <div class="status-msg" id="richiedi-status"></div>
-</div>
+        <div id="containerVariantiAggiungi" style="display: none;">
+            <div class="form-titolo">Fase 2</div>
+            <h3>Scegli la Variante</h3>
+            <div class="grid" id="gridVariantiAggiungi"></div>
+        </div>
 
-<script>
-const tg = window.Telegram.WebApp;
-tg.ready();
-tg.expand();
+        <button id="btnConfermaAggiungi" class="action-btn" onclick="inviaDati('aggiungi')">➕ Salva nell'Inventario</button>
+    </div>
 
-const initData = tg.initData || "";
+    <div id="cerca" class="section">
+        <div class="form-titolo">Cosa stai cercando?</div>
+        <h3>Seleziona lo Spiritello</h3>
+        <div class="grid" id="gridTipiCerca"></div>
 
-let TIPI = [];
-let VARIANTI = [];
-let selezione = { aggiungi: { tipo: null, variante: null }, richiedi: { tipo: null, variante: null } };
+        <div id="containerVariantiCerca" style="display: none;">
+            <div class="form-titolo">Che variante vuoi?</div>
+            <h3>Scegli la Variante</h3>
+            <div class="grid" id="gridVariantiCerca"></div>
+        </div>
 
-// --- Navigazione tab ---
-document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById("view-" + btn.dataset.view).classList.add("active");
-    if (btn.dataset.view === "collezione") caricaCollezione();
-  });
-});
+        <button id="btnConfermaCerca" class="action-btn" onclick="inviaDati('cerca')">📢 Invia Richiesta al Gruppo</button>
+    </div>
 
-// --- Caricamento opzioni (tipi/varianti) ---
-async function caricaOpzioni() {
-  const res = await fetch("/api/info");
-  const data = await res.json();
-  TIPI = data.tipi;
-  VARIANTI = data.varianti;
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+        
+        let initData = tg.initData || "";
+        let urlParams = new URLSearchParams(window.location.search);
+        let viewUser = urlParams.get('view_user');
 
-  renderOpzioni("aggiungi-tipi", TIPI, "aggiungi", "tipo");
-  renderOpzioni("aggiungi-varianti", VARIANTI, "aggiungi", "variante");
-  renderOpzioni("richiedi-tipi", TIPI, "richiedi", "tipo");
-  renderOpzioni("richiedi-varianti", VARIANTI, "richiedi", "variante");
-}
+        const LISTA_SPIRITELLI = [
+            { id: "Acqua", icon: "💧" },
+            { id: "Terra", icon: "🌍" },
+            { id: "Fuoco", icon: "🔥" },
+            { id: "Papera", icon: "🦆" },
+            { id: "Demone", icon: "😈" },
+            { id: "Fantasma", icon: "👻" },
+            { id: "Re", icon: "👑" },
+            { id: "Punk", icon: "🎸" },
+            { id: "Sogno", icon: "🌌" },
+            { id: "Punto Zero", icon: "🔮" },
+            { id: "Arachide Bruciata", icon: "🥜" }
+        ];
 
-function renderOpzioni(containerId, opzioni, contesto, campo) {
-  const container = document.getElementById(containerId);
-  container.innerHTML = "";
-  opzioni.forEach(opt => {
-    const btn = document.createElement("button");
-    btn.className = "option-btn";
-    btn.textContent = opt;
-    btn.addEventListener("click", () => {
-      container.querySelectorAll(".option-btn").forEach(b => b.classList.remove("selected"));
-      btn.classList.add("selected");
-      selezione[contesto][campo] = opt;
-    });
-    container.appendChild(btn);
-  });
-}
+        const LISTA_VARIANTI = [
+            { id: "Normale", icon: "🌱" },
+            { id: "Oro", icon: "🪙" },
+            { id: "Caramella", icon: "🍬" }
+        ];
 
-// --- Collezione ---
-async function caricaCollezione() {
-  const list = document.getElementById("collezione-list");
-  list.innerHTML = "Caricamento...";
+        let statoAggiungi = { tipo: null, variante: null };
+        let statoCerca = { tipo: null, variante: null };
+        let collezioneAttuale = {}; 
 
-  const res = await fetch("/api/collezione?init_data=" + encodeURIComponent(initData));
-  if (!res.ok) {
-    list.innerHTML = '<div class="empty">Errore di autenticazione.</div>';
-    return;
-  }
-  const data = await res.json();
+        if (viewUser) {
+            document.getElementById('mainTitle').innerText = `👀 Collezione di @${viewUser}`;
+            document.getElementById('tabContainer').style.display = 'none';
+        }
 
-  if (data.length === 0) {
-    list.innerHTML = '<div class="empty">La tua collezione è vuota.<br>Vai su "Aggiungi" per inserire uno spiritello.</div>';
-    return;
-  }
+        function switchTab(tabId) {
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabId === 'collezione') loadCollezione();
+        }
 
-  list.innerHTML = "";
-  data.forEach(item => {
-    const card = document.createElement("div");
-    card.className = "item-card";
-    card.innerHTML = `
-      <span>${item.tipo} - ${item.variante}</span>
-      <button data-id="${item.id}">Elimina</button>
-    `;
-    card.querySelector("button").addEventListener("click", async () => {
-      await fetch("/api/elimina", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ init_data: initData, id: item.id })
-      });
-      caricaCollezione();
-    });
-    list.appendChild(card);
-  });
-}
+        function creaGriglie() {
+            generaPulsanti(LISTA_SPIRITELLI, 'gridTipiAggiungi', 'aggiungi', 'tipo');
+            generaPulsanti(LISTA_VARIANTI, 'gridVariantiAggiungi', 'aggiungi', 'variante');
+            generaPulsanti(LISTA_SPIRITELLI, 'gridTipiCerca', 'cerca', 'tipo');
+            generaPulsanti(LISTA_VARIANTI, 'gridVariantiCerca', 'cerca', 'variante');
+        }
 
-// --- Aggiungi ---
-document.getElementById("btn-aggiungi").addEventListener("click", async () => {
-  const { tipo, variante } = selezione.aggiungi;
-  const status = document.getElementById("aggiungi-status");
+        function generaPulsanti(lista, containerId, tab, categoria) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            lista.forEach(item => {
+                let btn = document.createElement('button');
+                btn.className = 'btn';
+                btn.setAttribute('data-id', item.id);
+                btn.innerHTML = `${item.icon} ${item.id}`;
+                btn.onclick = () => seleziona(tab, categoria, item.id, btn, containerId);
+                container.appendChild(btn);
+            });
+        }
 
-  if (!tipo || !variante) {
-    status.className = "status-msg error";
-    status.textContent = "Seleziona tipo e variante.";
-    return;
-  }
+        function aggiornaStatoPulsanti() {
+            const maxVarianti = LISTA_VARIANTI.length;
 
-  const res = await fetch("/api/aggiungi", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ init_data: initData, tipo, variante })
-  });
-  const data = await res.json();
+            document.querySelectorAll('#gridTipiAggiungi .btn').forEach(btn => {
+                const tipoId = btn.getAttribute('data-id');
+                if (collezioneAttuale[tipoId] && collezioneAttuale[tipoId].length >= maxVarianti) {
+                    btn.classList.add('disabled');
+                } else {
+                    btn.classList.remove('disabled');
+                }
+            });
 
-  if (data.ok) {
-    status.className = "status-msg success";
-    status.textContent = "Spiritello aggiunto alla collezione!";
-    tg.HapticFeedback?.notificationOccurred("success");
-  } else {
-    status.className = "status-msg error";
-    status.textContent = "Errore: " + (data.error || "riprova");
-  }
-});
+            if (statoAggiungi.tipo) {
+                document.querySelectorAll('#gridVariantiAggiungi .btn').forEach(btn => {
+                    const varId = btn.getAttribute('data-id');
+                    if (collezioneAttuale[statoAggiungi.tipo] && collezioneAttuale[statoAggiungi.tipo].includes(varId)) {
+                        btn.classList.add('disabled');
+                    } else {
+                        btn.classList.remove('disabled');
+                    }
+                });
+            }
+        }
 
-// --- Richiedi ---
-document.getElementById("btn-richiedi").addEventListener("click", async () => {
-  const { tipo, variante } = selezione.richiedi;
-  const status = document.getElementById("richiedi-status");
+        function seleziona(tab, categoria, valore, btnElement, containerId) {
+            if (btnElement.classList.contains('disabled')) return; 
+            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
-  if (!tipo || !variante) {
-    status.className = "status-msg error";
-    status.textContent = "Seleziona tipo e variante.";
-    return;
-  }
+            let stato = (tab === 'aggiungi') ? statoAggiungi : statoCerca;
+            stato[categoria] = valore;
 
-  const res = await fetch("/api/richiedi", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ init_data: initData, tipo, variante })
-  });
-  const data = await res.json();
+            document.querySelectorAll(`#${containerId} .btn`).forEach(b => b.classList.remove('selected'));
+            btnElement.classList.add('selected');
 
-  if (data.ok) {
-    status.className = "status-msg success";
-    status.textContent = "Richiesta inviata nel gruppo!";
-    tg.HapticFeedback?.notificationOccurred("success");
-  } else {
-    status.className = "status-msg error";
-    status.textContent = "Errore: " + (data.error || "riprova");
-  }
-});
+            if (categoria === 'tipo') {
+                document.getElementById(`containerVarianti${capitalize(tab)}`).style.display = 'block';
+                stato.variante = null; 
+                document.querySelectorAll(`#gridVarianti${capitalize(tab)} .btn`).forEach(b => b.classList.remove('selected'));
+                document.getElementById(`btnConferma${capitalize(tab)}`).style.display = 'none';
+                
+                if (tab === 'aggiungi') aggiornaStatoPulsanti(); 
+            } else if (categoria === 'variante' && stato.tipo !== null) {
+                document.getElementById(`btnConferma${capitalize(tab)}`).style.display = 'block';
+            }
+        }
 
-// --- Init ---
-caricaOpzioni();
-caricaCollezione();
-</script>
+        function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+
+        async function loadCollezione() {
+            const container = document.getElementById('tipiList');
+            container.innerHTML = '<p style="color: var(--text-muted);">Sincronizzazione libreria... ⏳</p>';
+            let datiGrezzi = [];
+            
+            try {
+                const endpoint = viewUser ? `/api/collezione_utente?username=${viewUser}` : '/api/collezione';
+                const res = await fetch(endpoint, {
+                    method: 'POST', 
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ initData: initData })
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    datiGrezzi = json.spiritelli || [];
+                }
+            } catch (e) {
+                console.error("Errore di caricamento", e);
+                datiGrezzi = [];
+            }
+
+            const raggruppati = {};
+            datiGrezzi.forEach(item => {
+                let t = typeof item === 'object' ? item.tipo : item;
+                let v = typeof item === 'object' ? item.variante : "Normale";
+                if (!raggruppati[t]) raggruppati[t] = [];
+                raggruppati[t].push(v);
+            });
+
+            collezioneAttuale = raggruppati;
+            aggiornaStatoPulsanti(); 
+
+            container.innerHTML = '';
+            const ordineTipi = LISTA_SPIRITELLI.map(s => s.id);
+            let nomiTipi = Object.keys(raggruppati).sort((a, b) => ordineTipi.indexOf(a) - ordineTipi.indexOf(b));
+            
+            if (nomiTipi.length === 0) {
+                container.innerHTML = '<p style="color: var(--text-muted); font-size: 18px; margin-top:30px;">Inventario vuoto 💨</p>';
+                return;
+            }
+            
+            const ordineVarianti = LISTA_VARIANTI.map(v => v.id);
+
+            nomiTipi.forEach(tipoStringa => {
+                let icona = LISTA_SPIRITELLI.find(s => s.id === tipoStringa)?.icon || '✨';
+                let typeContainer = document.createElement('div');
+                typeContainer.className = 'type-container';
+                
+                let title = document.createElement('div');
+                title.className = 'type-title';
+                title.innerHTML = `${icona} Spiritello ${tipoStringa} <span class="type-count">${raggruppati[tipoStringa].length}</span>`;
+                typeContainer.appendChild(title);
+                
+                let grid = document.createElement('div');
+                grid.className = 'library-grid';
+                
+                let variantiOrdinate = raggruppati[tipoStringa].sort((a, b) => ordineVarianti.indexOf(a) - ordineVarianti.indexOf(b));
+
+                variantiOrdinate.forEach(varianteStringa => {
+                    let vIcon = LISTA_VARIANTI.find(v => v.id === varianteStringa)?.icon || '✨';
+                    let card = document.createElement('div');
+                    card.className = 'spiritello-card';
+                    card.innerHTML = `<div class="card-icon">${vIcon}</div><div class="card-variant">${varianteStringa}</div>`;
+                    
+                    if (!viewUser) {
+                        let delBtn = document.createElement('button');
+                        delBtn.className = 'card-delete';
+                        delBtn.innerText = '✖';
+                        delBtn.onclick = () => elimina(tipoStringa, varianteStringa);
+                        card.appendChild(delBtn);
+                    }
+                    grid.appendChild(card);
+                });
+                
+                typeContainer.appendChild(grid);
+                container.appendChild(typeContainer);
+            });
+        }
+
+        async function inviaDati(tab) {
+            const stato = tab === 'aggiungi' ? statoAggiungi : statoCerca;
+            const endpoint = tab === 'aggiungi' ? '/api/aggiungi' : '/api/richiedi';
+            
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ tipo: stato.tipo, variante: stato.variante, initData: initData })
+                });
+                
+                if (!res.ok) throw new Error("Errore server");
+                processaAggiunta(tab);
+            } catch (e) {
+                tg.showAlert('❌ Impossibile comunicare col server.');
+            }
+        }
+
+        function processaAggiunta(tab) {
+            tg.showAlert(tab === 'aggiungi' ? '✅ Aggiunto alla collezione!' : '📢 Annuncio inviato nel gruppo!');
+            if (tab === 'aggiungi') {
+                statoAggiungi = { tipo: null, variante: null };
+                document.getElementById('containerVariantiAggiungi').style.display = 'none';
+                document.getElementById('btnConfermaAggiungi').style.display = 'none';
+                document.querySelectorAll('#aggiungi .btn').forEach(b => b.classList.remove('selected'));
+                switchTab('collezione'); 
+            } else {
+                tg.close();
+            }
+        }
+
+        function elimina(tipo, variante) {
+            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+            tg.showConfirm(`Rimuovere lo Spiritello ${tipo} (${variante}) dall'inventario?`, async (agreed) => {
+                if (agreed) {
+                    try {
+                        const res = await fetch('/api/elimina', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({ tipo: tipo, variante: variante, initData: initData })
+                        });
+                        if(res.ok) {
+                            tg.showAlert('🗑️ Rimosso!');
+                            loadCollezione(); 
+                        } else {
+                            tg.showAlert('❌ Errore durante la rimozione.');
+                        }
+                    } catch(e) {
+                        tg.showAlert('❌ Errore di rete.');
+                    }
+                }
+            });
+        }
+
+        creaGriglie();
+        loadCollezione();
+    </script>
 </body>
 </html>

@@ -5,7 +5,7 @@ import hmac
 import json
 from urllib.parse import parse_qsl
 from flask import Flask, request, jsonify, send_from_directory
-from telegram import Bot
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 import asyncio
 
 app = Flask(__name__, static_folder="static")
@@ -30,7 +30,6 @@ def get_db_connection():
 def aggiungi_spiritello(user_id, username, tipo, variante):
     conn = get_db_connection()
     c = conn.cursor()
-    # Inserisce solo se non esiste già la combinazione (grazie al vincolo UNIQUE)
     c.execute("""
         INSERT INTO collezione (user_id, username, tipo, variante) 
         VALUES (%s, %s, %s, %s) 
@@ -65,10 +64,51 @@ def verifica_init_data(init_data: str):
         return json.loads(parsed.get("user", "{}"))
     except: return None
 
-# ---------------- API ----------------
+# ---------------- NUOVA FUNZIONE PER GESTIRE IL COMANDO /SPIRITELLI ----------------
+
+async def rispondi_comando_gruppo(chat_id, message_id):
+    bot = Bot(token=BOT_TOKEN)
+    bot_info = await bot.get_me()
+    bot_username = bot_info.username
+    
+    # Questo link porta l'utente nella chat privata del bot, dove potrà aprire la Web App
+    link_bot = f"https://t.me/{bot_username}"
+    
+    testo = "✨ Clicca sul pulsante qui sotto per aprire la tua collezione di Spiritelli!"
+    tastiera = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🎒 Apri SpiriBot", url=link_bot)]
+    ])
+    
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=testo,
+            reply_to_message_id=message_id,  # Risponde direttamente all'utente che ha digitato il comando
+            reply_markup=tastiera
+        )
+    except Exception as e:
+        print(f"Errore invio messaggio comando: {e}")
+
+# ---------------- API E GESTIONE WEBHOOK ----------------
 
 @app.route("/")
 def home(): return send_from_directory("static", "index.html")
+
+# Nuovo endpoint per ricevere i messaggi da Telegram (Webhook)
+@app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    update = request.get_json()
+    if "message" in update:
+        message = update["message"]
+        text = message.get("text", "")
+        chat_id = message["chat"]["id"]
+        message_id = message["message_id"]
+        
+        # Controlla se l'utente ha scritto /spiritelli o /spiritelli@NomeDelBot
+        if text.startswith("/spiritelli"):
+            asyncio.run(rispondi_comando_gruppo(chat_id, message_id))
+            
+    return jsonify({"status": "ok"})
 
 @app.route("/api/collezione", methods=["POST"])
 def api_collezione():

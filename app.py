@@ -64,26 +64,42 @@ def verifica_init_data(init_data: str):
         return json.loads(parsed.get("user", "{}"))
     except: return None
 
-# ---------------- NUOVA FUNZIONE PER GESTIRE IL COMANDO /SPIRITELLI ----------------
+# ---------------- GESTIONE DEI COMANDI GRUPPO ----------------
 
-async def rispondi_comando_gruppo(chat_id, message_id):
+async def rispondi_comando_gruppo(chat_id, message_id, testo_messaggio):
     bot = Bot(token=BOT_TOKEN)
     bot_info = await bot.get_me()
     bot_username = bot_info.username
     
-    # Questo link porta l'utente nella chat privata del bot, dove potrà aprire la Web App
-    link_bot = f"https://t.me/{bot_username}"
+    # Puliamo il testo per vedere se c'è un @username dopo il comando
+    parti = testo_messaggio.split()
+    target_username = None
     
-    testo = "✨ Clicca sul pulsante qui sotto per aprire la tua collezione di Spiritelli!"
+    for parte in parti:
+        if parte.startswith("@") and parte != f"@{bot_username}":
+            target_username = parte.replace("@", "") # Rimuove la @
+            break
+            
+    if target_username:
+        # Se c'è un username taggato, crea il link di sola lettura per "spiarlo"
+        link_web_app = f"https://{request.host}/?view_user={target_username}"
+        testo_risposta = f"👀 Clicca qui sotto per guardare la collezione di @{target_username}!"
+        testo_bottone = f"🎒 Guarda Collezione di @{target_username}"
+    else:
+        # Se non c'è tag, manda il link classico per aprire il proprio inventario privato
+        link_web_app = f"https://t.me/{bot_username}"
+        testo_risposta = "✨ Clicca sul pulsante qui sotto per aprire la tua collezione personale di Spiritelli!"
+        testo_bottone = "🎒 Apri SpiriBot"
+        
     tastiera = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🎒 Apri SpiriBot", url=link_bot)]
+        [InlineKeyboardButton(testo_bottone, url=link_web_app)]
     ])
     
     try:
         await bot.send_message(
             chat_id=chat_id,
-            text=testo,
-            reply_to_message_id=message_id,  # Risponde direttamente all'utente che ha digitato il comando
+            text=testo_risposta,
+            reply_to_message_id=message_id,
             reply_markup=tastiera
         )
     except Exception as e:
@@ -94,7 +110,6 @@ async def rispondi_comando_gruppo(chat_id, message_id):
 @app.route("/")
 def home(): return send_from_directory("static", "index.html")
 
-# Nuovo endpoint per ricevere i messaggi da Telegram (Webhook)
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
     update = request.get_json()
@@ -104,9 +119,8 @@ def telegram_webhook():
         chat_id = message["chat"]["id"]
         message_id = message["message_id"]
         
-        # Controlla se l'utente ha scritto /spiritelli o /spiritelli@NomeDelBot
         if text.startswith("/spiritelli"):
-            asyncio.run(rispondi_comando_gruppo(chat_id, message_id))
+            asyncio.run(rispondi_comando_gruppo(chat_id, message_id, text))
             
     return jsonify({"status": "ok"})
 
@@ -119,6 +133,20 @@ def api_collezione():
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT tipo, variante FROM collezione WHERE user_id = %s", (user["id"],))
+    rows = c.fetchall()
+    conn.close()
+    return jsonify({"spiritelli": [{"tipo": r[0], "variante": r[1]} for r in rows]})
+
+# NUOVA ROTTA: Permette al frontend di consultare la collezione di un altro utente tramite lo username
+@app.route("/api/collezione_utente", methods=["POST"])
+def api_collezione_utente():
+    username_target = request.args.get("username")
+    if not username_target:
+        return jsonify({"error": "username mancante"}), 400
+        
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute("SELECT tipo, variante FROM collezione WHERE username = %s", (username_target,))
     rows = c.fetchall()
     conn.close()
     return jsonify({"spiritelli": [{"tipo": r[0], "variante": r[1]} for r in rows]})

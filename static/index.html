@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>✨ SpiriBot</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
-    
+
     <style>
         :root {
             --bg-color: #12121a;
@@ -20,7 +20,7 @@
             --accent-grad: linear-gradient(135deg, #b134ff 0%, #ff007f 100%);
             --danger: #ff4757;
         }
-        
+
         body {
             font-family: 'Nunito', sans-serif;
             background-color: var(--bg-color);
@@ -28,7 +28,7 @@
             margin: 0;
             padding: 15px;
             text-align: center;
-            user-select: none; 
+            user-select: none;
             -webkit-user-select: none;
         }
 
@@ -59,7 +59,7 @@
         .spiritello-card:hover { border-color: #4facfe; transform: translateY(-4px); }
         .card-icon { font-size: 45px; margin-bottom: 10px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.4)); }
         .card-variant { font-family: 'Fredoka', sans-serif; font-size: 13px; color: var(--text-color); background: rgba(0,0,0,0.3); padding: 5px 8px; border-radius: 8px; width: 90%; text-align: center; word-wrap: break-word; }
-        
+
         .card-delete { position: absolute; top: -6px; right: -6px; background: var(--danger); color: white; border: none; border-radius: 50%; width: 26px; height: 26px; font-size: 12px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; transition: 0.2s; }
         .card-delete:hover { transform: scale(1.1); background: #ff1e33; }
 
@@ -73,9 +73,9 @@
     <h1 id="mainTitle">✨ SpiriBot</h1>
 
     <div class="tabs" id="tabContainer">
-        <button class="tab-btn active" onclick="switchTab('collezione')">🎒 Collezione</button>
-        <button class="tab-btn" onclick="switchTab('aggiungi')">➕ Aggiungi</button>
-        <button class="tab-btn" onclick="switchTab('cerca')">🔍 Cerca</button>
+        <button class="tab-btn active" data-tab="collezione">🎒 Collezione</button>
+        <button class="tab-btn" data-tab="aggiungi">➕ Aggiungi</button>
+        <button class="tab-btn" data-tab="cerca">🔍 Cerca</button>
     </div>
 
     <div id="collezione" class="section active">
@@ -89,11 +89,11 @@
 
         <div id="containerVariantiAggiungi" style="display: none;">
             <div class="form-titolo">Fase 2</div>
-            <h3>Scegli la Variante</h3>
+            <h3 id="titoloVariantiAggiungi">Scegli la Variante</h3>
             <div class="grid" id="gridVariantiAggiungi"></div>
         </div>
 
-        <button id="btnConfermaAggiungi" class="action-btn" onclick="inviaDati('aggiungi')">➕ Salva nell'Inventario</button>
+        <button id="btnConfermaAggiungi" class="action-btn">➕ Salva nell'Inventario</button>
     </div>
 
     <div id="cerca" class="section">
@@ -103,97 +103,120 @@
 
         <div id="containerVariantiCerca" style="display: none;">
             <div class="form-titolo">Che variante vuoi?</div>
-            <h3>Scegli la Variante</h3>
+            <h3 id="titoloVariantiCerca">Scegli la Variante</h3>
             <div class="grid" id="gridVariantiCerca"></div>
         </div>
 
-        <button id="btnConfermaCerca" class="action-btn" onclick="inviaDati('cerca')">📢 Invia Richiesta al Gruppo</button>
+        <button id="btnConfermaCerca" class="action-btn">📢 Invia Richiesta al Gruppo</button>
     </div>
 
     <script>
         const tg = window.Telegram.WebApp;
         tg.expand();
-        
+
         let initData = tg.initData || "";
         let urlParams = new URLSearchParams(window.location.search);
         let viewUser = urlParams.get('view_user');
 
-        const LISTA_SPIRITELLI = [
-            { id: "Acqua", icon: "💧" },
-            { id: "Terra", icon: "🌍" },
-            { id: "Fuoco", icon: "🔥" },
-            { id: "Papera", icon: "🦆" },
-            { id: "Demone", icon: "😈" },
-            { id: "Fantasma", icon: "👻" },
-            { id: "Re", icon: "👑" },
-            { id: "Punk", icon: "🎸" },
-            { id: "Sogno", icon: "🌌" },
-            { id: "Punto Zero", icon: "🔮" },
-            { id: "Arachide Bruciata", icon: "🥜" }
-        ];
-
-        const LISTA_VARIANTI = [
-            { id: "Normale", icon: "🌱" },
-            { id: "Oro", icon: "🪙" },
-            { id: "Caramella", icon: "🍬" }
-        ];
+        // Popolata dinamicamente da /api/info: { "Acqua": {icon: "💧", varianti: [{id, icon}, ...]}, ... }
+        let SPIRITELLI_CONFIG = {};
 
         let statoAggiungi = { tipo: null, variante: null };
         let statoCerca = { tipo: null, variante: null };
-        let collezioneAttuale = {}; 
+        let collezioneAttuale = {};
 
         if (viewUser) {
             document.getElementById('mainTitle').innerText = `👀 Collezione di @${viewUser}`;
             document.getElementById('tabContainer').style.display = 'none';
         }
 
-        function switchTab(tabId) {
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        // ---------------- TAB NAVIGATION ----------------
+
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => switchTab(btn.dataset.tab, btn));
+        });
+
+        function switchTab(tabId, btnElement) {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
             document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            
+
             document.getElementById(tabId).classList.add('active');
-            event.target.classList.add('active');
-            
+            btnElement.classList.add('active');
+
             if (tabId === 'collezione') loadCollezione();
         }
 
-        function creaGriglie() {
-            generaPulsanti(LISTA_SPIRITELLI, 'gridTipiAggiungi', 'aggiungi', 'tipo');
-            generaPulsanti(LISTA_VARIANTI, 'gridVariantiAggiungi', 'aggiungi', 'variante');
-            generaPulsanti(LISTA_SPIRITELLI, 'gridTipiCerca', 'cerca', 'tipo');
-            generaPulsanti(LISTA_VARIANTI, 'gridVariantiCerca', 'cerca', 'variante');
+        // ---------------- CARICAMENTO CONFIGURAZIONE ----------------
+
+        async function caricaConfigurazione() {
+            try {
+                const res = await fetch('/api/info');
+                SPIRITELLI_CONFIG = await res.json();
+            } catch (e) {
+                console.error("Errore caricamento configurazione", e);
+                SPIRITELLI_CONFIG = {};
+            }
+            creaGrigliaTipi('gridTipiAggiungi', 'aggiungi');
+            creaGrigliaTipi('gridTipiCerca', 'cerca');
         }
 
-        function generaPulsanti(lista, containerId, tab, categoria) {
+        // ---------------- GRIGLIA TIPI (FASE 1) ----------------
+
+        function creaGrigliaTipi(containerId, tab) {
             const container = document.getElementById(containerId);
             container.innerHTML = '';
-            lista.forEach(item => {
+            Object.keys(SPIRITELLI_CONFIG).forEach(tipoId => {
+                const dati = SPIRITELLI_CONFIG[tipoId];
                 let btn = document.createElement('button');
                 btn.className = 'btn';
-                btn.setAttribute('data-id', item.id);
-                btn.innerHTML = `${item.icon} ${item.id}`;
-                btn.onclick = () => seleziona(tab, categoria, item.id, btn, containerId);
+                btn.setAttribute('data-id', tipoId);
+                btn.innerHTML = `${dati.icon} ${tipoId}`;
+                btn.onclick = () => selezionaTipo(tab, tipoId, btn, containerId);
                 container.appendChild(btn);
             });
         }
 
-        function aggiornaStatoPulsanti() {
-            const maxVarianti = LISTA_VARIANTI.length;
+        // ---------------- GRIGLIA VARIANTI (FASE 2, dinamica per tipo) ----------------
 
+        function creaGrigliaVarianti(tab, tipoId) {
+            const containerId = `gridVarianti${capitalize(tab)}`;
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+
+            const varianti = SPIRITELLI_CONFIG[tipoId]?.varianti || [];
+
+            varianti.forEach(v => {
+                let btn = document.createElement('button');
+                btn.className = 'btn';
+                btn.setAttribute('data-id', v.id);
+                btn.innerHTML = `${v.icon} ${v.id}`;
+                btn.onclick = () => selezionaVariante(tab, v.id, btn, containerId);
+                container.appendChild(btn);
+            });
+        }
+
+        // ---------------- DISABILITA COMBINAZIONI GIA' POSSEDUTE ----------------
+
+        function aggiornaStatoPulsanti() {
+            // Disabilita un tipo solo se l'utente possiede TUTTE le varianti disponibili per quel tipo
             document.querySelectorAll('#gridTipiAggiungi .btn').forEach(btn => {
                 const tipoId = btn.getAttribute('data-id');
-                if (collezioneAttuale[tipoId] && collezioneAttuale[tipoId].length >= maxVarianti) {
+                const varianti = SPIRITELLI_CONFIG[tipoId]?.varianti || [];
+                const possedute = collezioneAttuale[tipoId] || [];
+                if (possedute.length >= varianti.length && varianti.length > 0) {
                     btn.classList.add('disabled');
                 } else {
                     btn.classList.remove('disabled');
                 }
             });
 
+            // Disabilita le varianti già possedute per il tipo selezionato
             if (statoAggiungi.tipo) {
                 document.querySelectorAll('#gridVariantiAggiungi .btn').forEach(btn => {
                     const varId = btn.getAttribute('data-id');
-                    if (collezioneAttuale[statoAggiungi.tipo] && collezioneAttuale[statoAggiungi.tipo].includes(varId)) {
+                    const possedute = collezioneAttuale[statoAggiungi.tipo] || [];
+                    if (possedute.includes(varId)) {
                         btn.classList.add('disabled');
                     } else {
                         btn.classList.remove('disabled');
@@ -202,39 +225,59 @@
             }
         }
 
-        function seleziona(tab, categoria, valore, btnElement, containerId) {
-            if (btnElement.classList.contains('disabled')) return; 
-            if(tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+        // ---------------- SELEZIONE ----------------
+
+        function selezionaTipo(tab, tipoId, btnElement, containerId) {
+            if (btnElement.classList.contains('disabled')) return;
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
 
             let stato = (tab === 'aggiungi') ? statoAggiungi : statoCerca;
-            stato[categoria] = valore;
+            stato.tipo = tipoId;
+            stato.variante = null;
 
             document.querySelectorAll(`#${containerId} .btn`).forEach(b => b.classList.remove('selected'));
             btnElement.classList.add('selected');
 
-            if (categoria === 'tipo') {
-                document.getElementById(`containerVarianti${capitalize(tab)}`).style.display = 'block';
-                stato.variante = null; 
-                document.querySelectorAll(`#gridVarianti${capitalize(tab)} .btn`).forEach(b => b.classList.remove('selected'));
-                document.getElementById(`btnConferma${capitalize(tab)}`).style.display = 'none';
-                
-                if (tab === 'aggiungi') aggiornaStatoPulsanti(); 
-            } else if (categoria === 'variante' && stato.tipo !== null) {
-                document.getElementById(`btnConferma${capitalize(tab)}`).style.display = 'block';
+            // Costruisci la griglia varianti specifica per questo tipo
+            creaGrigliaVarianti(tab, tipoId);
+
+            const cap = capitalize(tab);
+            document.getElementById(`containerVarianti${cap}`).style.display = 'block';
+            document.getElementById(`titoloVariantiAggiungi`) && (document.getElementById(`titoloVariantiAggiungi`).innerText = `Varianti di ${tipoId}`);
+            if (tab === 'cerca') {
+                document.getElementById(`titoloVariantiCerca`).innerText = `Varianti di ${tipoId}`;
             }
+            document.getElementById(`btnConferma${cap}`).style.display = 'none';
+
+            if (tab === 'aggiungi') aggiornaStatoPulsanti();
+        }
+
+        function selezionaVariante(tab, varianteId, btnElement, containerId) {
+            if (btnElement.classList.contains('disabled')) return;
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+
+            let stato = (tab === 'aggiungi') ? statoAggiungi : statoCerca;
+            stato.variante = varianteId;
+
+            document.querySelectorAll(`#${containerId} .btn`).forEach(b => b.classList.remove('selected'));
+            btnElement.classList.add('selected');
+
+            document.getElementById(`btnConferma${capitalize(tab)}`).style.display = 'block';
         }
 
         function capitalize(str) { return str.charAt(0).toUpperCase() + str.slice(1); }
+
+        // ---------------- CARICAMENTO COLLEZIONE ----------------
 
         async function loadCollezione() {
             const container = document.getElementById('tipiList');
             container.innerHTML = '<p style="color: var(--text-muted);">Sincronizzazione libreria... ⏳</p>';
             let datiGrezzi = [];
-            
+
             try {
                 const endpoint = viewUser ? `/api/collezione_utente?username=${viewUser}` : '/api/collezione';
                 const res = await fetch(endpoint, {
-                    method: 'POST', 
+                    method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ initData: initData })
                 });
@@ -249,47 +292,48 @@
 
             const raggruppati = {};
             datiGrezzi.forEach(item => {
-                let t = typeof item === 'object' ? item.tipo : item;
-                let v = typeof item === 'object' ? item.variante : "Normale";
+                let t = item.tipo;
+                let v = item.variante;
                 if (!raggruppati[t]) raggruppati[t] = [];
                 raggruppati[t].push(v);
             });
 
             collezioneAttuale = raggruppati;
-            aggiornaStatoPulsanti(); 
+            aggiornaStatoPulsanti();
 
             container.innerHTML = '';
-            const ordineTipi = LISTA_SPIRITELLI.map(s => s.id);
+            const ordineTipi = Object.keys(SPIRITELLI_CONFIG);
             let nomiTipi = Object.keys(raggruppati).sort((a, b) => ordineTipi.indexOf(a) - ordineTipi.indexOf(b));
-            
+
             if (nomiTipi.length === 0) {
                 container.innerHTML = '<p style="color: var(--text-muted); font-size: 18px; margin-top:30px;">Inventario vuoto 💨</p>';
                 return;
             }
-            
-            const ordineVarianti = LISTA_VARIANTI.map(v => v.id);
 
             nomiTipi.forEach(tipoStringa => {
-                let icona = LISTA_SPIRITELLI.find(s => s.id === tipoStringa)?.icon || '✨';
+                let icona = SPIRITELLI_CONFIG[tipoStringa]?.icon || '✨';
+                let varianti = SPIRITELLI_CONFIG[tipoStringa]?.varianti || [];
+                let ordineVarianti = varianti.map(v => v.id);
+
                 let typeContainer = document.createElement('div');
                 typeContainer.className = 'type-container';
-                
+
                 let title = document.createElement('div');
                 title.className = 'type-title';
                 title.innerHTML = `${icona} Spiritello ${tipoStringa} <span class="type-count">${raggruppati[tipoStringa].length}</span>`;
                 typeContainer.appendChild(title);
-                
+
                 let grid = document.createElement('div');
                 grid.className = 'library-grid';
-                
+
                 let variantiOrdinate = raggruppati[tipoStringa].sort((a, b) => ordineVarianti.indexOf(a) - ordineVarianti.indexOf(b));
 
                 variantiOrdinate.forEach(varianteStringa => {
-                    let vIcon = LISTA_VARIANTI.find(v => v.id === varianteStringa)?.icon || '✨';
+                    let vIcon = varianti.find(v => v.id === varianteStringa)?.icon || '✨';
                     let card = document.createElement('div');
                     card.className = 'spiritello-card';
                     card.innerHTML = `<div class="card-icon">${vIcon}</div><div class="card-variant">${varianteStringa}</div>`;
-                    
+
                     if (!viewUser) {
                         let delBtn = document.createElement('button');
                         delBtn.className = 'card-delete';
@@ -299,23 +343,28 @@
                     }
                     grid.appendChild(card);
                 });
-                
+
                 typeContainer.appendChild(grid);
                 container.appendChild(typeContainer);
             });
         }
 
+        // ---------------- AZIONI: AGGIUNGI / CERCA ----------------
+
+        document.getElementById('btnConfermaAggiungi').addEventListener('click', () => inviaDati('aggiungi'));
+        document.getElementById('btnConfermaCerca').addEventListener('click', () => inviaDati('cerca'));
+
         async function inviaDati(tab) {
             const stato = tab === 'aggiungi' ? statoAggiungi : statoCerca;
             const endpoint = tab === 'aggiungi' ? '/api/aggiungi' : '/api/richiedi';
-            
+
             try {
                 const res = await fetch(endpoint, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({ tipo: stato.tipo, variante: stato.variante, initData: initData })
                 });
-                
+
                 if (!res.ok) throw new Error("Errore server");
                 processaAggiunta(tab);
             } catch (e) {
@@ -330,14 +379,19 @@
                 document.getElementById('containerVariantiAggiungi').style.display = 'none';
                 document.getElementById('btnConfermaAggiungi').style.display = 'none';
                 document.querySelectorAll('#aggiungi .btn').forEach(b => b.classList.remove('selected'));
-                switchTab('collezione'); 
+                document.querySelector('.tab-btn[data-tab="collezione"]').click();
             } else {
-                tg.close();
+                statoCerca = { tipo: null, variante: null };
+                document.getElementById('containerVariantiCerca').style.display = 'none';
+                document.getElementById('btnConfermaCerca').style.display = 'none';
+                document.querySelectorAll('#cerca .btn').forEach(b => b.classList.remove('selected'));
             }
         }
 
+        // ---------------- ELIMINAZIONE ----------------
+
         function elimina(tipo, variante) {
-            if(tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('warning');
             tg.showConfirm(`Rimuovere lo Spiritello ${tipo} (${variante}) dall'inventario?`, async (agreed) => {
                 if (agreed) {
                     try {
@@ -346,21 +400,25 @@
                             headers: {'Content-Type': 'application/json'},
                             body: JSON.stringify({ tipo: tipo, variante: variante, initData: initData })
                         });
-                        if(res.ok) {
+                        if (res.ok) {
                             tg.showAlert('🗑️ Rimosso!');
-                            loadCollezione(); 
+                            loadCollezione();
                         } else {
                             tg.showAlert('❌ Errore durante la rimozione.');
                         }
-                    } catch(e) {
+                    } catch (e) {
                         tg.showAlert('❌ Errore di rete.');
                     }
                 }
             });
         }
 
-        creaGriglie();
-        loadCollezione();
+        // ---------------- INIT ----------------
+
+        (async function init() {
+            await caricaConfigurazione();
+            await loadCollezione();
+        })();
     </script>
 </body>
 </html>

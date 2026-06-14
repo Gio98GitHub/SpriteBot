@@ -7,6 +7,8 @@ from urllib.parse import parse_qsl
 from flask import Flask, request, jsonify, send_from_directory
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup
 import asyncio
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__, static_folder="static")
 
@@ -14,6 +16,19 @@ app = Flask(__name__, static_folder="static")
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID")
 DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# Token segreto separato per validare le richieste del webhook Telegram.
+# Va impostato con setWebhook (parametro secret_token) E come env var su Render.
+WEBHOOK_SECRET = os.environ.get("WEBHOOK_SECRET", "")
+
+# ---------------- RATE LIMITING ----------------
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["60 per minute"],
+    storage_uri="memory://"
+)
 
 # ---------------- CONFIGURAZIONE SPIRITELLI ----------------
 
@@ -76,16 +91,24 @@ def elimina_spiritello(user_id, tipo, variante):
 # ---------------- VALIDAZIONE TELEGRAM ----------------
 
 def verifica_init_data(init_data: str):
+    """
+    Verifica la firma HMAC dei dati ricevuti dalla Telegram WebApp.
+    Ritorna il dizionario 'user' se valido, altrimenti None.
+    """
     try:
         parsed = dict(parse_qsl(init_data))
         received_hash = parsed.pop("hash", None)
         if not received_hash:
             return None
+
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
         secret_key = hmac.new("WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256).digest()
         calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-        if calculated_hash != received_hash:
+
+        # Confronto a tempo costante per evitare timing attack
+        if not hmac.compare_digest(calculated_hash, received_hash):
             return None
+
         return json.loads(parsed.get("user", "{}"))
     except Exception:
         return None
@@ -143,8 +166,16 @@ def static_files(path):
 
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
+    # Verifica il secret token impostato tramite setWebhook (header dedicato Telegram).
+    # Se WEBHOOK_SECRET non è configurato, questo controllo viene saltato (compatibilità),
+    # ma è FORTEMENTE consigliato impostarlo.
+    if WEBHOOK_SECRET:
+        header_secret = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+        if not hmac.compare_digest(header_secret, WEBHOOK_SECRET):
+            return jsonify({"status": "forbidden"}), 403
+
     update = request.get_json()
-    if "message" in update:
+    if update and "message" in update:
         message = update["message"]
         text = message.get("text", "")
         chat_id = message["chat"]["id"]
@@ -169,6 +200,7 @@ def api_info():
     return jsonify(risposta)
 
 @app.route("/api/collezione", methods=["POST"])
+@limiter.limit("30 per minute")
 def api_collezione():
     body = request.get_json()
     user = verifica_init_data(body.get("initData", ""))
@@ -183,9 +215,19 @@ def api_collezione():
     return jsonify({"spiritelli": [{"tipo": r[0], "variante": r[1]} for r in rows]})
 
 @app.route("/api/collezione_utente", methods=["POST"])
+@limiter.limit("30 per minute")
 def api_collezione_utente():
-    """Vista in sola lettura della collezione di un altro utente, tramite username."""
-    username_target = request.args.get("username")
+    """
+    Vista in sola lettura della collezione di un altro utente, tramite username.
+    Richiede comunque un initData valido: serve essere un utente autenticato
+    del bot per poter consultare le collezioni altrui (evita enumerazione anonima).
+    """
+    body = request.get_json(silent=True) or {}
+    user = verifica_init_data(body.get("initData", ""))
+    if not user:
+        return jsonify({"error": "non autorizzato"}), 401
+
+    username_target = request.args.get("username", "").lstrip("@").strip()
     if not username_target:
         return jsonify({"error": "username mancante"}), 400
 
@@ -197,6 +239,7 @@ def api_collezione_utente():
     return jsonify({"spiritelli": [{"tipo": r[0], "variante": r[1]} for r in rows]})
 
 @app.route("/api/aggiungi", methods=["POST"])
+@limiter.limit("20 per minute")
 def api_aggiungi():
     body = request.get_json()
     user = verifica_init_data(body.get("initData", ""))
@@ -216,16 +259,27 @@ def api_aggiungi():
     return jsonify({"ok": success})
 
 @app.route("/api/elimina", methods=["POST"])
+@limiter.limit("20 per minute")
 def api_elimina():
     body = request.get_json()
     user = verifica_init_data(body.get("initData", ""))
     if not user:
         return jsonify({"error": "non autorizzato"}), 401
 
-    ok = elimina_spiritello(user["id"], body.get("tipo"), body.get("variante"))
+    tipo, variante = body.get("tipo"), body.get("variante")
+
+    if tipo not in SPIRITELLI_CONFIG:
+        return jsonify({"error": "tipo non valido"}), 400
+
+    varianti_valide = [v["id"] for v in SPIRITELLI_CONFIG[tipo]["varianti"]]
+    if variante not in varianti_valide:
+        return jsonify({"error": "variante non valida per questo tipo"}), 400
+
+    ok = elimina_spiritello(user["id"], tipo, variante)
     return jsonify({"ok": ok})
 
 @app.route("/api/richiedi", methods=["POST"])
+@limiter.limit("5 per minute")
 def api_richiedi():
     body = request.get_json()
     user = verifica_init_data(body.get("initData", ""))

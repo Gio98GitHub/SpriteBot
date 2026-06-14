@@ -48,8 +48,8 @@ VARIANTI_SOLO_NORMALE = [
 
 SPIRITELLI_CONFIG = {
     "Acqua": {"icon": "💧", "varianti": VARIANTI_STANDARD},
-    "Terra": {"icon": "🌍", "varianti": VARIANTI_STANDARD},
     "Fuoco": {"icon": "🔥", "varianti": VARIANTI_STANDARD},
+    "Terra": {"icon": "🌍", "varianti": VARIANTI_STANDARD},
     "Papera": {"icon": "🦆", "varianti": VARIANTI_STANDARD},
     "Demone": {"icon": "😈", "varianti": VARIANTI_STANDARD},
     "Fantasma": {"icon": "👻", "varianti": VARIANTI_STANDARD},
@@ -219,23 +219,19 @@ def api_collezione():
 def api_collezione_utente():
     """
     Vista in sola lettura della collezione di un altro utente, tramite username.
-    Richiede comunque un initData valido: serve essere un utente autenticato
-    del bot per poter consultare le collezioni altrui (evita enumerazione anonima).
+    Non richiede autenticazione (è read-only e dati non sensibili).
     """
-    body = request.get_json(silent=True) or {}
-    user = verifica_init_data(body.get("initData", ""))
-    if not user:
-        return jsonify({"error": "non autorizzato"}), 401
-
     username_target = request.args.get("username", "").lstrip("@").strip()
     if not username_target:
         return jsonify({"error": "username mancante"}), 400
 
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("SELECT tipo, variante FROM collezione WHERE username = %s", (username_target,))
+    # Ricerca case-insensitive per essere più robusto
+    c.execute("SELECT tipo, variante FROM collezione WHERE LOWER(username) = LOWER(%s)", (username_target,))
     rows = c.fetchall()
     conn.close()
+    
     return jsonify({"spiritelli": [{"tipo": r[0], "variante": r[1]} for r in rows]})
 
 @app.route("/api/aggiungi", methods=["POST"])

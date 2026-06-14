@@ -16,11 +16,34 @@ GROUP_CHAT_ID = os.environ.get("GROUP_CHAT_ID")
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
 # ---------------- CONFIGURAZIONE SPIRITELLI ----------------
-SPIRITELLI_CONFIG = [
-    "Acqua", "Terra", "Fuoco", "Papera", "Demone", 
-    "Fantasma", "Re", "Punk", "Sogno", "Punto Zero", "Arachide Bruciata"
+
+# Ogni tipo ha la sua emoji e la lista di varianti disponibili (con relativa emoji).
+# 🥜 Arachide Bruciata ha SOLO la variante Normale.
+# Tutti gli altri: Normale, Oro, Caramella (struttura pronta per differenziare in futuro).
+
+VARIANTI_STANDARD = [
+    {"id": "Normale", "icon": "🌱"},
+    {"id": "Oro", "icon": "🪙"},
+    {"id": "Caramella", "icon": "🍬"},
 ]
-VARIANTI_LISTA = ["Normale", "Oro", "Caramella"]
+
+VARIANTI_SOLO_NORMALE = [
+    {"id": "Normale", "icon": "🌱"},
+]
+
+SPIRITELLI_CONFIG = {
+    "Acqua": {"icon": "💧", "varianti": VARIANTI_STANDARD},
+    "Terra": {"icon": "🌍", "varianti": VARIANTI_STANDARD},
+    "Fuoco": {"icon": "🔥", "varianti": VARIANTI_STANDARD},
+    "Papera": {"icon": "🦆", "varianti": VARIANTI_STANDARD},
+    "Demone": {"icon": "😈", "varianti": VARIANTI_STANDARD},
+    "Fantasma": {"icon": "👻", "varianti": VARIANTI_STANDARD},
+    "Re": {"icon": "👑", "varianti": VARIANTI_STANDARD},
+    "Punk": {"icon": "🎸", "varianti": VARIANTI_STANDARD},
+    "Sogno": {"icon": "🌌", "varianti": VARIANTI_STANDARD},
+    "Punto Zero": {"icon": "🔮", "varianti": VARIANTI_STANDARD},
+    "Arachide Bruciata": {"icon": "🥜", "varianti": VARIANTI_SOLO_NORMALE},
+}
 
 # ---------------- DATABASE (Supabase/PostgreSQL) ----------------
 
@@ -31,9 +54,9 @@ def aggiungi_spiritello(user_id, username, tipo, variante):
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("""
-        INSERT INTO collezione (user_id, username, tipo, variante) 
-        VALUES (%s, %s, %s, %s) 
-        ON CONFLICT DO NOTHING
+        INSERT INTO collezione (user_id, username, tipo, variante)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (user_id, tipo, variante) DO NOTHING
     """, (user_id, username, tipo, variante))
     conn.commit()
     inserted = c.rowcount > 0
@@ -43,7 +66,7 @@ def aggiungi_spiritello(user_id, username, tipo, variante):
 def elimina_spiritello(user_id, tipo, variante):
     conn = get_db_connection()
     c = conn.cursor()
-    c.execute("DELETE FROM collezione WHERE user_id = %s AND tipo = %s AND variante = %s", 
+    c.execute("DELETE FROM collezione WHERE user_id = %s AND tipo = %s AND variante = %s",
               (user_id, tipo, variante))
     conn.commit()
     deleted = c.rowcount > 0
@@ -56,13 +79,16 @@ def verifica_init_data(init_data: str):
     try:
         parsed = dict(parse_qsl(init_data))
         received_hash = parsed.pop("hash", None)
-        if not received_hash: return None
+        if not received_hash:
+            return None
         data_check_string = "\n".join(f"{k}={v}" for k, v in sorted(parsed.items()))
         secret_key = hmac.new("WebAppData".encode(), BOT_TOKEN.encode(), hashlib.sha256).digest()
         calculated_hash = hmac.new(secret_key, data_check_string.encode(), hashlib.sha256).hexdigest()
-        if calculated_hash != received_hash: return None
+        if calculated_hash != received_hash:
+            return None
         return json.loads(parsed.get("user", "{}"))
-    except: return None
+    except Exception:
+        return None
 
 # ---------------- GESTIONE DEI COMANDI GRUPPO ----------------
 
@@ -70,31 +96,29 @@ async def rispondi_comando_gruppo(chat_id, message_id, testo_messaggio):
     bot = Bot(token=BOT_TOKEN)
     bot_info = await bot.get_me()
     bot_username = bot_info.username
-    
-    # Puliamo il testo per vedere se c'è un @username dopo il comando
+
+    # Cerchiamo un @username dopo il comando per vedere se è una richiesta "guarda collezione di"
     parti = testo_messaggio.split()
     target_username = None
-    
+
     for parte in parti:
         if parte.startswith("@") and parte != f"@{bot_username}":
-            target_username = parte.replace("@", "") # Rimuove la @
+            target_username = parte.replace("@", "")
             break
-            
+
     if target_username:
-        # Se c'è un username taggato, crea il link di sola lettura per "spiarlo"
         link_web_app = f"https://{request.host}/?view_user={target_username}"
         testo_risposta = f"👀 Clicca qui sotto per guardare la collezione di @{target_username}!"
         testo_bottone = f"🎒 Guarda Collezione di @{target_username}"
     else:
-        # Se non c'è tag, manda il link classico per aprire il proprio inventario privato
         link_web_app = f"https://t.me/{bot_username}"
-        testo_risposta = "✨ Clicca sul pulsante qui sotto per aprire la tua collezione personale di Spiritelli!"
+        testo_risposta = "✨ Apri la chat privata col bot e premi il pulsante in basso per gestire la tua collezione di Spiritelli!"
         testo_bottone = "🎒 Apri SpiriBot"
-        
+
     tastiera = InlineKeyboardMarkup([
         [InlineKeyboardButton(testo_bottone, url=link_web_app)]
     ])
-    
+
     try:
         await bot.send_message(
             chat_id=chat_id,
@@ -105,10 +129,17 @@ async def rispondi_comando_gruppo(chat_id, message_id, testo_messaggio):
     except Exception as e:
         print(f"Errore invio messaggio comando: {e}")
 
-# ---------------- API E GESTIONE WEBHOOK ----------------
+# ---------------- ROUTES STATICHE ----------------
 
 @app.route("/")
-def home(): return send_from_directory("static", "index.html")
+def home():
+    return send_from_directory("static", "index.html")
+
+@app.route("/<path:path>")
+def static_files(path):
+    return send_from_directory("static", path)
+
+# ---------------- WEBHOOK TELEGRAM ----------------
 
 @app.route(f"/webhook/{BOT_TOKEN}", methods=["POST"])
 def telegram_webhook():
@@ -118,18 +149,32 @@ def telegram_webhook():
         text = message.get("text", "")
         chat_id = message["chat"]["id"]
         message_id = message["message_id"]
-        
+
         if text.startswith("/spiritelli"):
             asyncio.run(rispondi_comando_gruppo(chat_id, message_id, text))
-            
+
     return jsonify({"status": "ok"})
+
+# ---------------- API ----------------
+
+@app.route("/api/info")
+def api_info():
+    """Ritorna la configurazione di tipi/varianti per costruire i menu a cascata nel frontend."""
+    risposta = {}
+    for tipo, dati in SPIRITELLI_CONFIG.items():
+        risposta[tipo] = {
+            "icon": dati["icon"],
+            "varianti": dati["varianti"]
+        }
+    return jsonify(risposta)
 
 @app.route("/api/collezione", methods=["POST"])
 def api_collezione():
     body = request.get_json()
     user = verifica_init_data(body.get("initData", ""))
-    if not user: return jsonify({"error": "non autorizzato"}), 401
-    
+    if not user:
+        return jsonify({"error": "non autorizzato"}), 401
+
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT tipo, variante FROM collezione WHERE user_id = %s", (user["id"],))
@@ -137,13 +182,13 @@ def api_collezione():
     conn.close()
     return jsonify({"spiritelli": [{"tipo": r[0], "variante": r[1]} for r in rows]})
 
-# NUOVA ROTTA: Permette al frontend di consultare la collezione di un altro utente tramite lo username
 @app.route("/api/collezione_utente", methods=["POST"])
 def api_collezione_utente():
+    """Vista in sola lettura della collezione di un altro utente, tramite username."""
     username_target = request.args.get("username")
     if not username_target:
         return jsonify({"error": "username mancante"}), 400
-        
+
     conn = get_db_connection()
     c = conn.cursor()
     c.execute("SELECT tipo, variante FROM collezione WHERE username = %s", (username_target,))
@@ -155,12 +200,18 @@ def api_collezione_utente():
 def api_aggiungi():
     body = request.get_json()
     user = verifica_init_data(body.get("initData", ""))
-    if not user: return jsonify({"error": "non autorizzato"}), 401
-    
+    if not user:
+        return jsonify({"error": "non autorizzato"}), 401
+
     tipo, variante = body.get("tipo"), body.get("variante")
-    if tipo not in SPIRITELLI_CONFIG or variante not in VARIANTI_LISTA:
-        return jsonify({"error": "dati non validi"}), 400
-    
+
+    if tipo not in SPIRITELLI_CONFIG:
+        return jsonify({"error": "tipo non valido"}), 400
+
+    varianti_valide = [v["id"] for v in SPIRITELLI_CONFIG[tipo]["varianti"]]
+    if variante not in varianti_valide:
+        return jsonify({"error": "variante non valida per questo tipo"}), 400
+
     success = aggiungi_spiritello(user["id"], user.get("username", "utente"), tipo, variante)
     return jsonify({"ok": success})
 
@@ -168,8 +219,9 @@ def api_aggiungi():
 def api_elimina():
     body = request.get_json()
     user = verifica_init_data(body.get("initData", ""))
-    if not user: return jsonify({"error": "non autorizzato"}), 401
-    
+    if not user:
+        return jsonify({"error": "non autorizzato"}), 401
+
     ok = elimina_spiritello(user["id"], body.get("tipo"), body.get("variante"))
     return jsonify({"ok": ok})
 
@@ -177,10 +229,29 @@ def api_elimina():
 def api_richiedi():
     body = request.get_json()
     user = verifica_init_data(body.get("initData", ""))
-    if not user: return jsonify({"error": "non autorizzato"}), 401
-    
+    if not user:
+        return jsonify({"error": "non autorizzato"}), 401
+
     tipo, variante = body.get("tipo"), body.get("variante")
-    testo = f"🔎 @{user.get('username', 'utente')} cerca uno spiritello!\n\n{tipo} ({variante})"
+
+    if tipo not in SPIRITELLI_CONFIG:
+        return jsonify({"error": "tipo non valido"}), 400
+
+    varianti_valide = [v["id"] for v in SPIRITELLI_CONFIG[tipo]["varianti"]]
+    if variante not in varianti_valide:
+        return jsonify({"error": "variante non valida per questo tipo"}), 400
+
+    icon_tipo = SPIRITELLI_CONFIG[tipo]["icon"]
+    icon_variante = next(
+        (v["icon"] for v in SPIRITELLI_CONFIG[tipo]["varianti"] if v["id"] == variante), "✨"
+    )
+
+    testo = (
+        f"🔎 @{user.get('username', 'utente')} cerca uno spiritello!\n\n"
+        f"{icon_tipo} Tipo: {tipo}\n"
+        f"{icon_variante} Variante: {variante}\n\n"
+        f"💬 Se lo possiedi e vuoi scambiarlo, rispondi a questo messaggio!"
+    )
     asyncio.run(invia_messaggio_gruppo(testo))
     return jsonify({"ok": True})
 

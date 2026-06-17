@@ -137,7 +137,7 @@ async def rispondi_comando_gruppo(chat_id, message_id, testo_messaggio):
     else:
         link_web_app = f"https://t.me/{bot_username}"
         testo_risposta = "✨ Apri la chat privata col bot e premi il pulsante in basso per gestire la tua collezione di Spiritelli!"
-        testo_bottone = "🎒 Apri SpiriBot"
+        testo_bottone = "🎒 Apri SpriteBot"
 
     tastiera = InlineKeyboardMarkup([
         [InlineKeyboardButton(testo_bottone, url=link_web_app)]
@@ -152,6 +152,32 @@ async def rispondi_comando_gruppo(chat_id, message_id, testo_messaggio):
         )
     except Exception as e:
         print(f"Errore invio messaggio comando: {e}")
+
+async def rispondi_comando_info(chat_id, message_id):
+    """Risponde al comando /info con informazioni personalizzate sul bot."""
+    bot = Bot(token=BOT_TOKEN)
+
+    testo_info = (
+        "ℹ️ <b>SpriteBot</b>\n\n"
+        "🎮 Gestisci la tua collezione di Spiritelli da Fortnite!\n\n"
+        "<b>Comandi disponibili:</b>\n"
+        "🎒 <b>/spiritelli</b> - Apri la tua collezione personale\n"
+        "👀 <b>/spiritelli @username</b> - Guarda la collezione di un altro utente\n"
+        "ℹ️ <b>/info</b> - Mostra questo messaggio\n\n"
+        "✨ Raccogli tutti gli Spiritelli nelle loro diverse varianti!\n"
+        "💬 Scambia con gli altri utenti del gruppo\n\n"
+        "by @Fortnite_italia_leaks"
+    )
+
+    try:
+        await bot.send_message(
+            chat_id=chat_id,
+            text=testo_info,
+            parse_mode="HTML",
+            reply_to_message_id=message_id
+        )
+    except Exception as e:
+        print(f"Errore invio info: {e}")
 
 # ---------------- ROUTES STATICHE ----------------
 
@@ -184,6 +210,8 @@ def telegram_webhook():
 
         if text.startswith("/spiritelli"):
             asyncio.run(rispondi_comando_gruppo(chat_id, message_id, text))
+        elif text.startswith("/info"):
+            asyncio.run(rispondi_comando_info(chat_id, message_id))
 
     return jsonify({"status": "ok"})
 
@@ -232,7 +260,7 @@ def api_collezione_utente():
     c.execute("SELECT tipo, variante FROM collezione WHERE LOWER(username) = LOWER(%s)", (username_target,))
     rows = c.fetchall()
     conn.close()
-    
+
     return jsonify({"spiritelli": [{"tipo": r[0], "variante": r[1]} for r in rows]})
 
 @app.route("/api/aggiungi", methods=["POST"])

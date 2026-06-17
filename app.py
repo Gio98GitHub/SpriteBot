@@ -34,12 +34,13 @@ limiter = Limiter(
 
 # Ogni tipo ha la sua emoji e la lista di varianti disponibili (con relativa emoji).
 # 🥜 Arachide Bruciata ha SOLO la variante Normale.
-# Tutti gli altri: Normale, Oro, Caramella (struttura pronta per differenziare in futuro).
+# Tutti gli altri: Normale, Oro, Gommoso, Galassia (struttura pronta per differenziare in futuro).
 
 VARIANTI_STANDARD = [
     {"id": "Normale", "icon": "🌱"},
     {"id": "Oro", "icon": "🪙"},
-    {"id": "Caramella", "icon": "🍬"},
+    {"id": "Gommoso", "icon": "🍬"},
+    {"id": "Galassia", "icon": "🌌"},
 ]
 
 VARIANTI_SOLO_NORMALE = [

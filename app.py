@@ -32,17 +32,17 @@ limiter = Limiter(
 
 # ---------------- CONFIGURAZIONE SPIRITELLI ----------------
 
-# Ogni tipo ha la sua emoji e la lista di varianti disponibili (con relativa emoji).
-# 🥜 Arachide Bruciata ha SOLO la variante Normale.
-# Tutti gli altri: Normale, Oro, Gommoso, Galassia (struttura pronta per differenziare in futuro).
-
+# Varianti disponibili per la maggior parte degli spiritelli
 VARIANTI_STANDARD = [
     {"id": "Normale", "icon": "🌱"},
     {"id": "Oro", "icon": "🪙"},
     {"id": "Gommoso", "icon": "🍬"},
     {"id": "Galassia", "icon": "🌌"},
+    {"id": "Gemmato", "icon": "💎"},
+    {"id": "Olografico", "icon": "✨"},
 ]
 
+# Solo Normale per Arachide Bruciata
 VARIANTI_SOLO_NORMALE = [
     {"id": "Normale", "icon": "🌱"},
 ]
@@ -59,6 +59,12 @@ SPIRITELLI_CONFIG = {
     "Sogno": {"icon": "🌌", "varianti": VARIANTI_STANDARD},
     "Punto Zero": {"icon": "🔮", "varianti": VARIANTI_STANDARD},
     "Arachide Bruciata": {"icon": "🥜", "varianti": VARIANTI_SOLO_NORMALE},
+    "Pesciolino": {"icon": "🐟", "varianti": VARIANTI_STANDARD},
+    "Boss": {"icon": "👹", "varianti": VARIANTI_STANDARD},
+    "Aura": {"icon": "🌀", "varianti": VARIANTI_STANDARD},
+    "Aria": {"icon": "💨", "varianti": VARIANTI_STANDARD},
+    "Mietitore": {"icon": "⚰️", "varianti": VARIANTI_STANDARD},
+    "Palla": {"icon": "⚽", "varianti": VARIANTI_STANDARD},
 }
 
 # ---------------- DATABASE (Supabase/PostgreSQL) ----------------
